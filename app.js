@@ -59,9 +59,7 @@ app.use('/graphql',
         return Event
         .find()
         .then(events => {
-          return events.map(event => {
-            return { ...event._doc}
-          })
+          return events
         })
         .catch(err => {
           console.log(err)
@@ -79,9 +77,7 @@ app.use('/graphql',
         return event
         .save()
         .then(res => {
-          console.log(res)
-          // spread operator
-          return {...res._doc}
+          return res
         })
         .catch(err => {
           console.log(err)
