@@ -2,6 +2,9 @@ const express = require('express')
 const bodyParser = require('body-parser') // parse coming json bodies
 const { graphqlHTTP } = require('express-graphql') // {} object de-structuring
 const { buildSchema } = require('graphql') // converts string to graphql schema
+const mongoose = require('mongoose')
+
+const Event = require('./models/events')
 
 const app = express()
 
@@ -24,18 +27,26 @@ app.use('/graphql',
   graphqlHTTP({
     schema: buildSchema(`
       type Event {
-        _id: ID
+        _id: ID!
         title: String!
         desc: String!
+        price: Float!
+        date: String!
+      }
+
+      input EventInput {
+        title: String!
+        desc: String!
+        price: Float!
         date: String!
       }
 
       type RootQuery {
-        events: [String!]!
+        events: [Event!]!
       }
 
       type RootMutation {
-        createEvent(name: String!): String!
+        createEvent(eventInput: EventInput): Event
       }
 
       schema {
@@ -45,14 +56,46 @@ app.use('/graphql',
     `),
     rootValue: {
       events: () => {
-        return ['Cycling', 'Cooking', 'Running']
+        return Event
+        .find()
+        .then(events => {
+          return events.map(event => {
+            return { ...event._doc}
+          })
+        })
+        .catch(err => {
+          console.log(err)
+          throw err
+        })
       },
-      createEvent: (args) => {
-        return args.name
+      createEvent: args => {
+        const event = new Event({
+          title: args.eventInput.title,
+          desc: args.eventInput.desc,
+          price: +args.eventInput.price,
+          date: new Date().toISOString()
+        })
+        // return event so that graphql knows that the resolver is doing async op and it should wait for the result
+        return event
+        .save()
+        .then(res => {
+          console.log(res)
+          // spread operator
+          return {...res._doc}
+        })
+        .catch(err => {
+          console.log(err)
+          throw err
+        })
       }
     },
     graphiql: true
   })
 )
-
-app.listen(3000)
+mongoose.connect(`mongodb://localhost:27017/${process.env.MONGO_DB}`, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => {
+    app.listen(3000)
+  })
+  .catch(err => {
+    console.log(err)
+  })
