@@ -24,6 +24,10 @@ const eventScehma = new Schema({
         type: Date,
         required: true
     },
+    creator: {
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    }
 })
 
 // blueprint that incoorporates the plna that creates an object

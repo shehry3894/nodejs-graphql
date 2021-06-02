@@ -3,10 +3,15 @@ const bodyParser = require('body-parser') // parse coming json bodies
 const { graphqlHTTP } = require('express-graphql') // {} object de-structuring
 const { buildSchema } = require('graphql') // converts string to graphql schema
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
 
-const Event = require('./models/events')
+const User = require('./models/user')
+const Event = require('./models/event')
 
 const app = express()
+
+
+const tempUserID ='60b7ad2fada9331972e05246'
 
 // middleware
 app.use(bodyParser.json())
@@ -26,6 +31,7 @@ app.get('/', (req, res, next) => {
 app.use('/graphql',
   graphqlHTTP({
     schema: buildSchema(`
+    
       type Event {
         _id: ID!
         title: String!
@@ -41,12 +47,24 @@ app.use('/graphql',
         date: String!
       }
 
+      type User {
+        _id: ID!
+        email: String!
+        password: String
+      }
+
+      input UserInput {
+        email: String!
+        password: String!
+      }
+
       type RootQuery {
         events: [Event!]!
       }
 
       type RootMutation {
         createEvent(eventInput: EventInput): Event
+        createUser(userInput: UserInput): User
       }
 
       schema {
@@ -57,31 +75,64 @@ app.use('/graphql',
     rootValue: {
       events: () => {
         return Event
-        .find()
-        .then(events => {
-          return events
-        })
-        .catch(err => {
-          console.log(err)
-          throw err
-        })
+          .find()
+          .then(events => {
+            return events
+          })
+          .catch(err => {
+            console.log(err)
+            throw err
+          })
       },
       createEvent: args => {
         const event = new Event({
           title: args.eventInput.title,
           desc: args.eventInput.desc,
           price: +args.eventInput.price,
-          date: new Date().toISOString()
+          date: new Date().toISOString(),
+          creator: tempUserID
         })
         // return event so that graphql knows that the resolver is doing async op and it should wait for the result
         return event
-        .save()
-        .then(res => {
-          return res
+          .save()
+          .then(res => {
+            User.findById(tempUserID)
+            .then(user => {
+              if (!user) throw new Error('User does not exist!')
+              user.createdEvents.push(event)
+              return user.save()
+            })
+            .catch(err => {
+              console.log(err)
+            })
+            return res
+          })
+          .catch(err => {
+            console.log(err)
+            throw err
+          })
+      },
+      createUser: args => {
+        return User.findOne({email: args.userInput.email})
+        .then(user => {
+          if (user) throw new Error('User already exists!')
+          return bcrypt.hash(args.userInput.password, 12)
+          .then(hashedPassword => {
+            const user = new User({
+              email: args.userInput.email,
+              password: hashedPassword
+            })
+            return user.save()
+          })
+          .then(res => {
+            return res
+          })
+          .catch(err => {
+            console.log(err)
+          })
         })
         .catch(err => {
           console.log(err)
-          throw err
         })
       }
     },
@@ -95,3 +146,5 @@ mongoose.connect(`mongodb://localhost:27017/${process.env.MONGO_DB}`, { useNewUr
   .catch(err => {
     console.log(err)
   })
+
+  
