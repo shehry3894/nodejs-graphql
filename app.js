@@ -1,17 +1,16 @@
 const express = require('express')
 const bodyParser = require('body-parser') // parse coming json bodies
-const { graphqlHTTP } = require('express-graphql') // {} object de-structuring
+const { graphqlHTTP } = require('express-graphql') // {} object de-structuring, middleware
 const { buildSchema } = require('graphql') // converts string to graphql schema
-const mongoose = require('mongoose')
-const bcrypt = require('bcrypt')
+const mongoose = require('mongoose') // ODM for mongoDB
+const bcrypt = require('bcrypt') // encrypt a string
 
 const User = require('./models/user')
 const Event = require('./models/event')
 
 const app = express()
 
-
-const tempUserID ='60b7ad2fada9331972e05246'
+const tempUserID = '60b7ad2fada9331972e05246' // copied ID of exisitng from DB for testing
 
 // middleware
 app.use(bodyParser.json())
@@ -97,14 +96,14 @@ app.use('/graphql',
           .save()
           .then(res => {
             User.findById(tempUserID)
-            .then(user => {
-              if (!user) throw new Error('User does not exist!')
-              user.createdEvents.push(event)
-              return user.save()
-            })
-            .catch(err => {
-              console.log(err)
-            })
+              .then(user => {
+                if (!user) throw new Error('User does not exist!')
+                user.createdEvents.push(event)
+                return user.save()
+              })
+              .catch(err => {
+                console.log(err)
+              })
             return res
           })
           .catch(err => {
@@ -113,27 +112,27 @@ app.use('/graphql',
           })
       },
       createUser: args => {
-        return User.findOne({email: args.userInput.email})
-        .then(user => {
-          if (user) throw new Error('User already exists!')
-          return bcrypt.hash(args.userInput.password, 12)
-          .then(hashedPassword => {
-            const user = new User({
-              email: args.userInput.email,
-              password: hashedPassword
-            })
-            return user.save()
-          })
-          .then(res => {
-            return res
+        return User.findOne({ email: args.userInput.email })
+          .then(user => {
+            if (user) throw new Error('User already exists!')
+            return bcrypt.hash(args.userInput.password, 12)
+              .then(hashedPassword => {
+                const user = new User({
+                  email: args.userInput.email,
+                  password: hashedPassword
+                })
+                return user.save()
+              })
+              .then(res => {
+                return res
+              })
+              .catch(err => {
+                console.log(err)
+              })
           })
           .catch(err => {
             console.log(err)
           })
-        })
-        .catch(err => {
-          console.log(err)
-        })
       }
     },
     graphiql: true
@@ -146,5 +145,3 @@ mongoose.connect(`mongodb://localhost:27017/${process.env.MONGO_DB}`, { useNewUr
   .catch(err => {
     console.log(err)
   })
-
-  
