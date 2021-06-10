@@ -84,31 +84,32 @@ app.use('/graphql',
           })
       },
       createEvent: args => {
-        const event = new Event({
-          title: args.eventInput.title,
-          desc: args.eventInput.desc,
-          price: +args.eventInput.price,
-          date: new Date().toISOString(),
-          creator: tempUserID
-        })
-        // return event so that graphql knows that the resolver is doing async op and it should wait for the result
-        return event
-          .save()
-          .then(res => {
-            User.findById(tempUserID)
-              .then(user => {
-                if (!user) throw new Error('User does not exist!')
+        // return  so that graphql knows that the resolver is doing async op and it should wait for the result
+        return User.findById(tempUserID)
+          .then(user => {
+            if (!user) throw new Error(`User(${tempUserID}) does not exist!`)
+            const event = new Event({
+              title: args.eventInput.title,
+              desc: args.eventInput.desc,
+              price: +args.eventInput.price,
+              date: new Date().toISOString(),
+              creator: tempUserID
+            })
+            return event.save()
+              .then(res => {
                 user.createdEvents.push(event)
                 return user.save()
+              })
+              .then(res => {
+                return event
               })
               .catch(err => {
                 console.log(err)
               })
-            return res
           })
           .catch(err => {
             console.log(err)
-            throw err
+            return err
           })
       },
       createUser: args => {
@@ -123,15 +124,10 @@ app.use('/graphql',
                 })
                 return user.save()
               })
-              .then(res => {
-                return res
-              })
-              .catch(err => {
-                console.log(err)
-              })
           })
           .catch(err => {
             console.log(err)
+            return err
           })
       }
     },
