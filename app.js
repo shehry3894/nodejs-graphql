@@ -10,7 +10,38 @@ const Event = require('./models/event')
 
 const app = express()
 
-const tempUserID = '60b7ad2fada9331972e05246' // copied ID of exisitng from DB for testing
+const tempUserID = '60c27a36616ff83da89a9e4e' // copied ID of exisitng from DB for testing
+
+const user = (userId) => {
+  return User.findById(userId)
+    .then(user => {
+      if (!user) throw Error('User not found!')
+      return {
+        ...user._doc,
+        _id: user.id,
+        createdEvents: event.bind(this, user.createdEvents)
+      }
+    })
+    .catch(err => {
+      console.log(err)
+    })
+}
+
+const event = (eventIds) => {
+  return Event.find({ _id: { $in: eventIds } })
+    .then(events => {
+      return events.map(event => {
+        return {
+          ...event._doc,
+          _id: event.id,
+          creator: user.bind(this, event._doc.creator)
+        }
+      })
+    })
+    .catch(err => {
+      console.log(err)
+    })
+}
 
 // middleware
 app.use(bodyParser.json())
@@ -30,13 +61,13 @@ app.get('/', (req, res, next) => {
 app.use('/graphql',
   graphqlHTTP({
     schema: buildSchema(`
-    
       type Event {
         _id: ID!
         title: String!
         desc: String!
         price: Float!
         date: String!
+        creator: User!
       }
 
       input EventInput {
@@ -50,6 +81,7 @@ app.use('/graphql',
         _id: ID!
         email: String!
         password: String
+        createdEvents: [Event!]
       }
 
       input UserInput {
@@ -73,10 +105,16 @@ app.use('/graphql',
     `),
     rootValue: {
       events: () => {
-        return Event
-          .find()
+        return Event.find()
           .then(events => {
-            return events
+            return events.map(event => {
+              console.log(event._doc.creator)
+              return {
+                ...event._doc,
+                _id: event.id,
+                creator: user.bind(this, event._doc.creator)
+              }
+            })
           })
           .catch(err => {
             console.log(err)
