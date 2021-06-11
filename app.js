@@ -1,47 +1,14 @@
 const express = require('express')
 const bodyParser = require('body-parser') // parse coming json bodies
 const { graphqlHTTP } = require('express-graphql') // {} object de-structuring, middleware
-const { buildSchema } = require('graphql') // converts string to graphql schema
-const mongoose = require('mongoose') // ODM for mongoDB
-const bcrypt = require('bcrypt') // encrypt a string
 
-const User = require('./models/user')
-const Event = require('./models/event')
+const mongoose = require('mongoose') // ODM for mongoDB
+
+const gaphqlSchema = require('./graphql/schema/index')
+const gaphqlResolver = require('./graphql/resolvers/index')
+
 
 const app = express()
-
-const tempUserID = '60c27a36616ff83da89a9e4e' // copied ID of exisitng from DB for testing
-
-const user = (userId) => {
-  return User.findById(userId)
-    .then(user => {
-      if (!user) throw Error('User not found!')
-      return {
-        ...user._doc,
-        _id: user.id,
-        createdEvents: event.bind(this, user.createdEvents)
-      }
-    })
-    .catch(err => {
-      console.log(err)
-    })
-}
-
-const event = (eventIds) => {
-  return Event.find({ _id: { $in: eventIds } })
-    .then(events => {
-      return events.map(event => {
-        return {
-          ...event._doc,
-          _id: event.id,
-          creator: user.bind(this, event._doc.creator)
-        }
-      })
-    })
-    .catch(err => {
-      console.log(err)
-    })
-}
 
 // middleware
 app.use(bodyParser.json())
@@ -60,115 +27,8 @@ app.get('/', (req, res, next) => {
 
 app.use('/graphql',
   graphqlHTTP({
-    schema: buildSchema(`
-      type Event {
-        _id: ID!
-        title: String!
-        desc: String!
-        price: Float!
-        date: String!
-        creator: User!
-      }
-
-      input EventInput {
-        title: String!
-        desc: String!
-        price: Float!
-        date: String!
-      }
-
-      type User {
-        _id: ID!
-        email: String!
-        password: String
-        createdEvents: [Event!]
-      }
-
-      input UserInput {
-        email: String!
-        password: String!
-      }
-
-      type RootQuery {
-        events: [Event!]!
-      }
-
-      type RootMutation {
-        createEvent(eventInput: EventInput): Event
-        createUser(userInput: UserInput): User
-      }
-
-      schema {
-        query: RootQuery
-        mutation: RootMutation
-      }
-    `),
-    rootValue: {
-      events: () => {
-        return Event.find()
-          .then(events => {
-            return events.map(event => {
-              console.log(event._doc.creator)
-              return {
-                ...event._doc,
-                _id: event.id,
-                creator: user.bind(this, event._doc.creator)
-              }
-            })
-          })
-          .catch(err => {
-            console.log(err)
-            throw err
-          })
-      },
-      createEvent: args => {
-        // return  so that graphql knows that the resolver is doing async op and it should wait for the result
-        return User.findById(tempUserID)
-          .then(user => {
-            if (!user) throw new Error(`User(${tempUserID}) does not exist!`)
-            const event = new Event({
-              title: args.eventInput.title,
-              desc: args.eventInput.desc,
-              price: +args.eventInput.price,
-              date: new Date().toISOString(),
-              creator: tempUserID
-            })
-            return event.save()
-              .then(res => {
-                user.createdEvents.push(event)
-                return user.save()
-              })
-              .then(res => {
-                return event
-              })
-              .catch(err => {
-                console.log(err)
-              })
-          })
-          .catch(err => {
-            console.log(err)
-            return err
-          })
-      },
-      createUser: args => {
-        return User.findOne({ email: args.userInput.email })
-          .then(user => {
-            if (user) throw new Error('User already exists!')
-            return bcrypt.hash(args.userInput.password, 12)
-              .then(hashedPassword => {
-                const user = new User({
-                  email: args.userInput.email,
-                  password: hashedPassword
-                })
-                return user.save()
-              })
-          })
-          .catch(err => {
-            console.log(err)
-            return err
-          })
-      }
-    },
+    schema: gaphqlSchema,
+    rootValue: gaphqlResolver,
     graphiql: true
   })
 )
