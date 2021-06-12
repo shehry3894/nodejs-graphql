@@ -48,5 +48,18 @@
 			"})"
 		],
 		"description": "then and catch"
+	},
+
+	"try and catch": {
+		"prefix": "tc",
+		"body": [
+			"try {",
+			"\t$0",
+			"} catch(err) {",
+			"\tconsole.log(err)",
+			"\tthrow err",
+			"}"
+		],
+		"description": "try and catch"
 	}
 }
