@@ -5,24 +5,42 @@ const Event = require('../../models/event')
 
 const tempUserID = '60c27a36616ff83da89a9e4e' // copied ID of exisitng from DB for testing
 
-const user = (userId) => {
-  return User.findById(userId)
-    .then(user => {
-      if (!user) throw Error('User not found!')
+const events = async eventIds => {
+  try {
+    const events = await Event.find({ _id: { $in: eventIds } })
+    return events.map(event => {
       return {
-        ...user._doc,
-        _id: user.id,
-        createdEvents: event.bind(this, user.createdEvents)
+        ...event._doc,
+        _id: event.id,
+        creator: user.bind(this, event._doc.creator)
       }
     })
-    .catch(err => {
-      console.log(err)
-    })
+  } catch (err) {
+    console.log(err)
+    throw err
+  }
 }
 
-const event = (eventIds) => {
-  return Event.find({ _id: { $in: eventIds } })
-    .then(events => {
+const user = async userId => {
+  try {
+    const user = await User.findById(userId)
+    if (!user) throw Error('User not found!')
+
+    return {
+      ...user._doc,
+      _id: user.id,
+      createdEvents: events.bind(this, user.createdEvents)
+    }
+  } catch (err) {
+    console.log(err)
+    throw err
+  }
+}
+
+module.exports = {
+  events: async () => {
+    try {
+      const events = await Event.find()
       return events.map(event => {
         return {
           ...event._doc,
@@ -30,80 +48,51 @@ const event = (eventIds) => {
           creator: user.bind(this, event._doc.creator)
         }
       })
-    })
-    .catch(err => {
+    } catch (err) {
       console.log(err)
+    }
+  },
+  createEvent: async args => {
+    const newEvent = new Event({
+      title: args.eventInput.title,
+      desc: args.eventInput.desc,
+      price: +args.eventInput.price,
+      date: new Date().toISOString(),
+      creator: tempUserID
     })
-}
+    try {
+      const creator = await User.findById(tempUserID)
+      if (!creator) throw new Error(`User(${tempUserID}) does not exist!`)
 
-module.exports = {
-  events: () => {
-    return Event.find()
-      .then(events => {
-        return events.map(event => {
-          return {
-            ...event._doc,
-            _id: event.id,
-            creator: user.bind(this, event._doc.creator)
-          }
-        })
-      })
-      .catch(err => {
-        console.log(err)
-        throw err
-      })
+      const result = await newEvent.save()
+
+      creator.createdEvents.push(newEvent)
+      await creator.save()
+
+      return {
+        ...result._doc,
+        _id: result._doc._id.toString(),
+        date: new Date(newEvent._doc.date).toISOString(),
+        creator: user.bind(this, result._doc.creator)
+      }
+    } catch (err) {
+      console.log(err)
+      throw err
+    }
   },
-  createEvent: args => {
-    // return  so that graphql knows that the resolver is doing async op and it should wait for the result
-    return User.findById(tempUserID)
-      .then(existingUser => {
-        if (!existingUser) throw new Error(`User(${tempUserID}) does not exist!`)
-        const event = new Event({
-          title: args.eventInput.title,
-          desc: args.eventInput.desc,
-          price: +args.eventInput.price,
-          date: new Date().toISOString(),
-          creator: tempUserID
-        })
-        let createdEvent
-        return event.save()
-          .then(res => {
-            existingUser.createdEvents.push(event)
-            createdEvent = {
-              ...event._doc,
-              _id: event.id,
-              creator: user.bind(this, event._doc.creator)
-            }
-            return existingUser.save()
-          })
-          .then(res => {
-            return createdEvent
-          })
-          .catch(err => {
-            console.log(err)
-          })
+  createUser: async args => {
+    try {
+      const existingUser = await User.findOne({ email: args.userInput.email })
+      if (existingUser) throw new Error('User already exists!')
+
+      const hashedPassword = await bcrypt.hash(args.userInput.password, 12)
+      const newUser = new User({
+        email: args.userInput.email,
+        password: hashedPassword
       })
-      .catch(err => {
-        console.log(err)
-        return err
-      })
-  },
-  createUser: args => {
-    return User.findOne({ email: args.userInput.email })
-      .then(user => {
-        if (user) throw new Error('User already exists!')
-        return bcrypt.hash(args.userInput.password, 12)
-          .then(hashedPassword => {
-            const user = new User({
-              email: args.userInput.email,
-              password: hashedPassword
-            })
-            return user.save()
-          })
-      })
-      .catch(err => {
-        console.log(err)
-        return err
-      })
+      return newUser.save()
+    } catch (err) {
+      console.log(err)
+    }
   }
 }

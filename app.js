@@ -7,7 +7,6 @@ const mongoose = require('mongoose') // ODM for mongoDB
 const gaphqlSchema = require('./graphql/schema/index')
 const gaphqlResolver = require('./graphql/resolvers/index')
 
-
 const app = express()
 
 // middleware
