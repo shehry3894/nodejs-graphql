@@ -7,6 +7,8 @@ const mongoose = require('mongoose') // ODM for mongoDB
 const gaphqlSchema = require('./graphql/schema/index')
 const gaphqlResolver = require('./graphql/resolvers/index')
 
+const isAuth = require('./middlewares/is-auth')
+
 const app = express()
 
 // middleware
@@ -17,12 +19,7 @@ app.get('/', (req, res, next) => {
 })
 
 // middleware
-
-// app.use('/grapghql', graphqlHTTP({
-//   schema: "graphql schema here",
-//   rootValue: "resolvers here",
-//   graphiql: "True to have graphql dashboard"
-// }))
+app.use(isAuth)
 
 app.use('/graphql',
   graphqlHTTP({

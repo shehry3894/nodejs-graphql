@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt') // encrypt a string
+const jwt = require('jsonwebtoken')
 
 const User = require('../../models/user')
 const Event = require('../../models/event')
@@ -69,7 +70,9 @@ module.exports = {
       console.log(err)
     }
   },
-  bookings: async () => {
+  bookings: async (args, req) => {
+    if (!req.isAuth) throw Error('Unauthorized User!')
+
     try {
       const bookings = await Booking.find()
       return bookings.map(booking => {
@@ -84,7 +87,9 @@ module.exports = {
       console.log(err)
     }
   },
-  createEvent: async args => {
+  createEvent: async (args, req) => {
+    if (!req.isAuth) throw Error('Unauthorized User!')
+
     const newEvent = new Event({
       title: args.eventInput.title,
       desc: args.eventInput.desc,
@@ -127,7 +132,9 @@ module.exports = {
       console.log(err)
     }
   },
-  bookEvent: async args => {
+  bookEvent: async (args, req) => {
+    if (!req.isAuth) throw Error('Unauthorized User!')
+
     const booking = new Booking({
       event: args.eventId,
       user: tempUserID
@@ -139,5 +146,22 @@ module.exports = {
       user: user.bind(this, res.user),
       event: singleEvent.bind(this, res.event)
     }
+  },
+  login: async ({ email, password }) => {
+    const user = await User.findOne({ email: email })
+    if (!user) throw Error('User does not exist')
+
+    const passwordMatched = await bcrypt.compare(password, user.password)
+    if (!passwordMatched) throw Error('Invalid Email/Password')
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      'supersecretkey',
+      {
+        expiresIn: '1h'
+      }
+    )
+
+    return { userId: user.id, token: token, tokenExpiration: 1 }
   }
 }
